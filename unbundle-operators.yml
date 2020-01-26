@@ -1,0 +1,35 @@
+---
+
+# There are a handful of operators that are shipped as a single yaml file
+# named bundle.yaml
+# The registry operators expects the operators to be broken up into individual
+# componet yaml files for
+# - CSV (Cluser Serivce Version) and
+# - CRD (Custom Resource Definition)
+#
+# This playbook finds all the bundled operators and unbundles them
+# Once unbundled the bundle.yaml file will be deleted.
+
+- name: Unbundle Operators
+  hosts: localhost
+  tasks:
+
+    - name: find all the operators with bundle.yaml files
+      find:
+        paths:
+          - "{{ inventory_dir }}/redhat-operators"
+          # - "{{ inventory_dir }}/certified-operators"
+          # - "{{ inventory_dir }}/community-operators"
+        recurse: yes
+        file_type: file
+        patterns:
+          - "bundle.yaml"
+      register: reg_bundles
+
+    - include_role:
+        name: unbundle-operator
+      loop: "{{ reg_bundles.files }}"
+      vars:
+        bundle_file: "{{ item.path }}"
+      loop_control:
+        label: "{{ item.path }}"

@@ -1,0 +1,6 @@
+---
+# defaults file for download-operator
+
+op_release_url: "https://quay.io/cnr/api/v1/packages/{{ op_namespace }}/{{ op_name }}/{{ op_release }}"
+op_download_url: "https://quay.io/cnr/api/v1/packages/{{ op_namespace }}/{{ op_name }}/blobs/sha256/{{ op_digest }}"
+

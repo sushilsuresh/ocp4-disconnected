@@ -1,0 +1,9 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: offline-operatorhub-catalog
+  namespace: openshift-marketplace
+spec:
+  displayName: My Mirrored Operator Catalog
+  sourceType: grpc
+  image: "{{ mirror_endpoint }}/{{ registry_operator_repo }}"

@@ -1,0 +1,44 @@
+unqualified-search-registries = ['registry.access.redhat.com', 'docker.io']
+
+{% for reg in ocp_installer_registires %}
+[[registry]]
+  location = "{{ reg }}"
+  insecure = false
+  blocked = false
+  mirror-by-digest-only = true
+  prefix = ""
+
+  [[registry.mirror]]
+    location = "{{ installer_mirror }}"
+    insecure = false
+
+{% endfor %}
+
+{% for reg in misc_images %}
+[[registry]]
+  location = "{{ reg }}"
+  insecure = false
+  blocked = false
+  mirror-by-digest-only = false
+  prefix = ""
+
+  [[registry.mirror]]
+    location = "{{ mirror_endpoint }}/{{ reg.split('/')[1:] | join('/') }}"
+    insecure = false
+
+{% endfor %}
+
+{% for reg in reg_olm_repo_references.stdout_lines %}
+
+[[registry]]
+  location = "{{ reg }}"
+  insecure = false
+  blocked = false
+  mirror-by-digest-only = false
+  prefix = ""
+
+  [[registry.mirror]]
+    location = "{{ mirror_endpoint }}/olm/{{ reg.split('/')[1:] | join('/') }}"
+    insecure = false
+
+{% endfor %}

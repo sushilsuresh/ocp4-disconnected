@@ -1,0 +1,45 @@
+---
+
+- name: Mirror All the images necessary for an disconnected OpenShift install
+  hosts: localhost
+  vars_files:
+    vars/main.yml
+  tasks:
+
+    # The commad to mirror the installer images is taken from
+    # https://docs.openshift.com/container-platform/4.2/installing/install_config/installing-restricted-networks-preparations.html
+    # I have tried to keep varables as similar as possible to make it easier to
+    # read/compare against the documention
+    - name: Mirror OpenShift installer repo/images
+      command: >-
+        oc adm -a {{ local_secret_json }} release mirror
+        --from=quay.io/{{ product_repo }}/{{ release_name }}:{{ ocp_release }}
+        --to={{ installer_mirror }}
+        --to-release-image={{ installer_mirror }}:{{ ocp_release }}
+
+    - name: Mirror miscellaneous images that are required
+      command: "oc image mirror {{ src_repo }} {{ mirror_repo }} --registry-config={{ local_secret_json }}"
+      vars:
+        src_repo: "{{ lookup('image_repo', image=item) }}"
+        src_image_path: "{{ lookup('image_path', image=item) }}"
+        mirror_repo: "{{ mirror_endpoint }}/{{ misc_image_path }}/{{ src_image_path }}"
+      loop: "{{ misc_images }}"
+      loop_control:
+        label: "{{ src_repo }}"
+
+    # this is a very crude way to extract the images from the manifests
+    # Please don't judge me for this. Was running against the clock
+    # and this was the easiest/quickest method to extract them.
+    - name: Get list of image to mirror from the operator manifests
+      command: "{{ inventory_dir }}/scripts/extract_olm_image_refs.sh "
+      register: reg_image_refs
+      changed_when: false
+
+    - name: Mirror images required/referenced by the OLM
+      command: "oc image mirror {{ src_image }} {{ mirror_repo }} --registry-config={{ local_secret_json }}"
+      vars:
+        src_image: "{{ item }}"
+        src_image_path: "{{ lookup('image_path', image=item) }}"
+        mirror_repo: "{{ mirror_endpoint }}/{{ olm_image_path }}/{{ src_image_path }}"
+      loop: "{{ reg_image_refs.stdout_lines }}"
+

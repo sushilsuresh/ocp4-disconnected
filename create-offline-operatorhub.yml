@@ -1,0 +1,21 @@
+---
+
+- name: Create a custom offline operatorhub
+  hosts: localhost
+  vars_files:
+    vars/main.yml
+  tasks:
+
+    - name: Disable the default OperatorSources
+      command: oc patch OperatorHub cluster --type json -p '[{"op":"add", "path":"/spec/disableAllDefaultSources", "value":true}]'
+      register: reg_operatorhub
+      # TODO: add a changed_when condition to make the playbook idempotent
+      #changed_when: reg_operatorhub.stdout = search doesnt end with "(no change)"
+
+    - debug: var=reg_operatorhub
+
+    - name: Create custom CatalogSource
+      k8s:
+        state: present
+        definition: "{{ lookup('template', 'catalogsource.yaml.j2') }}"
+

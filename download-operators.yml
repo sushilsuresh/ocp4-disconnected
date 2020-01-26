@@ -1,0 +1,67 @@
+---
+
+- name: Download Openshift Operators
+  hosts: localhost
+  vars_files:
+    vars/main.yml
+  tasks:
+
+###############################################################################
+#                          redhat-operators                                   #
+###############################################################################
+    - name: Fetch list of redhat-operators
+      uri:
+        url: https://quay.io/cnr/api/v1/packages?namespace=redhat-operators
+        body_format: json
+      register: reg_redhat_operators
+
+    - name: Download the redhat-operators
+      include_role:
+        name: download-operator
+      loop: "{{ reg_redhat_operators.json }}"
+      vars:
+        op_release: "{{ item.default }}"
+        op_namespace: "{{ item.namespace }}"
+        op_name: "{{ item.name.split('/')[1] }}"
+      loop_control:
+        label: "{{ op_name }}"
+
+###############################################################################
+#                          certified-operators                                #
+###############################################################################
+    # - name: Fetch list of certified-operators
+    #   uri:
+    #     url: https://quay.io/cnr/api/v1/packages?namespace=certified-operators
+    #     body_format: json
+    #   register: reg_certified_operators
+
+    # - name: Download the certified-operators
+    #   include_role:
+    #     name: download-operator
+    #   loop: "{{ reg_certified_operators.json }}"
+    #   vars:
+    #     op_release: "{{ item.default }}"
+    #     op_namespace: "{{ item.namespace }}"
+    #     op_name: "{{ item.name.split('/')[1] }}"
+    #   loop_control:
+    #     label: "{{ op_name }}"
+
+###############################################################################
+#                          community-operators                                #
+###############################################################################
+    # - name: Fetch list of community-operators
+    #   uri:
+    #     url: https://quay.io/cnr/api/v1/packages?namespace=community-operators
+    #     body_format: json
+    #   register: reg_community_operators
+
+    # - name: Download the community-operators
+    #   include_role:
+    #     name: download-operator
+    #   loop: "{{ reg_community_operators.json }}"
+    #   vars:
+    #     op_release: "{{ item.default }}"
+    #     op_namespace: "{{ item.namespace }}"
+    #     op_name: "{{ item.name.split('/')[1] }}"
+    #   loop_control:
+    #     label: "{{ op_name }}"

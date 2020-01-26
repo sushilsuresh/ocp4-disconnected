@@ -1,0 +1,6 @@
+---
+# vars file for download-operator
+
+tmpdir: "{{ inventory_dir }}/tarballs"
+
+manifest_dir: "{{ inventory_dir }}/{{ op_namespace }}/manifests"

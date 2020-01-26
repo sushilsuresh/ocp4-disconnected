@@ -1,0 +1,52 @@
+# Default values
+
+ocp_release: 4.2.0
+product_repo: openshift-release-dev
+release_name: ocp-release
+local_secret_json: pull-secret.json
+
+# if you need any specific image mirrored to the airgap registry
+# for a disconnected OCP cluster please add them here
+misc_images:
+  - "registry.redhat.io/ubi8/ubi"                # redhat ubi8 image useful for debugging
+  - "registry.access.redhat.com/ubi8/ubi"        # redhat ubi8 image useful for debugging
+  - "docker.io/netapp/trident"                   # required for trident sotrage
+  - "quay.io/k8scsi/csi-attacher:v2.0.0"         # required for trident sotrage
+  - "quay.io/k8scsi/csi-snapshotter:v1.2.2"      # required for trident sotrage
+  - "quay.io/k8scsi/csi-provisioner:v1.3.1"      # required for trident sotrage
+  - "quay.io/k8scsi/csi-node-driver-registrar"   # required for trident sotrage
+  - "quay.io/openshift/origin-must-gather"       # required for submitting logs from the cluster for Red Hat support
+
+# below are the paths that will be used on the
+# mirror repository to store the mirror'd images
+# misc_image_path is used to misc images.
+misc_image_path: "misc"
+
+# olm_image_path is going to house all the images we
+# mirror for the offline operator hub to function
+#  We gather the list of images by scarping the manifests
+olm_image_path: "olm"
+
+# A discsonnected cluster would have the openenshift baseimages
+# or the installer images also mirrored. The below variable
+# installer_image_path is the path where installer images are
+# mirrored. (It is nice to have the images separated out)
+installer_image_path: "{{ release_name }}"
+
+# if you are have already mirrored your images you need to override this
+# variable when you invoke the playbook to mirror images
+installer_mirror: "{{ mirror_endpoint }}/{{ installer_image_path }}"
+
+# This is the airgapped registry repository which will mirror
+# all the relevant images.
+# Please poss in your miror endpoint using -e mirror_endpoint=xyz.com
+mirror_endpoint: helper.ocp4.example.com:5000
+
+# name of the customer or offline operator registry image
+# that we create.
+registry_operator_repo: "offline-operator-registry"
+
+ocp_installer_registires:
+  - "quay.io/openshift-release-dev/ocp-release"
+  - "quay.io/openshift-release-dev/ocp-v4.0-art-dev"
+

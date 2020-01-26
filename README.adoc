@@ -1,0 +1,364 @@
+= OCP4 Disconnected
+
+== Why this repo?
+This is the end result of trying to follow the OpenShift 4.2 documentation to
+perform a disconnected install.
+
+The official steps to be followed, inorder to peform a disconnected install are
+documented below.
+
+- link:https://docs.openshift.com/container-platform/4.2/installing/install_config/installing-restricted-networks-preparations.html[Creating a mirror registry for installation in a restricted network]
+- link:https://docs.openshift.com/container-platform/4.2/operators/olm-restricted-networks.html[Using Operator Lifecycle Manager on restricted networks]
+
+
+The official documentation steps are good, but they are very cumbersome and
+manual. It is very error prone, and extremely difficult to replicate/repeat the
+steps. Partly because it is not just one command. It is a chain of commands
+that needs to be performed. What better tool than ansible to do the same.
+
+I went through all the docs, and any blogs and github repos I could find on
+this topic as part of my research. I could not find a suitable resource that
+would walk me through the process of a disconnected install from start to
+finish. This git repo summarised my research and understanding, and provides a
+bunch of playbooks to help you navigate a disconnected install of OpenShift 4.
+
+I have referenced some of the resources that have been extremely helpful in
+getting me this far.
+
+Quoting one of my colleagues, the linked
+link:https://media1.giphy.com/media/3oz8xtBx06mcZWoNJm/source.gif[GIF]
+summarises my emotions.
+
+=== Assumptions
+You have a Linux machine with the following
+
+  - Connectivity to the internet
+  - podman installed
+  - Able to spin up podman containers as a regular user
+  - oc client installed
+  - ansibe with both the kubernetes and openshift modules installed
+
+== Preparatory Steps
+The following playbooks are to be run from a host that has connectivity to the
+internet as well as connectivity to your internal image registry, where you are
+expecting to host the miror'd images.
+
+=== Why do I need Operators in a Disconnected Cluster?
+A lot of the components within OpenShift 4.x rely on Operators. A prime example
+would be setting up
+link:https://docs.openshift.com/container-platform/4.2/service_mesh/service_mesh_install/installing-ossm.html[OpenShift Service Mesh]
+Setting up OSSM (OpenShift Service Mesh) requires the installation of the
+following operators from the OperatorHub
+
+- Elasticsearch
+- Jaeger
+- Kiali
+- ServiceMesh
+
+Without a fully functional OperatorHub this would not be possible. The
+OperatorHub provides Operators that are classified as
+
+- RedHat Operators
+- Certified Operators
+- Community Operators
+
+This repo, in it's current state only sets up the RedHat Operators. It is in my
+laundry list of things to do, to make the other operators work.
+
+=== Download the Operators
+At present the playbooks only downloads the Red Hat operators. I haven't tested
+the process for the `certified` and `community` operators. I ran into issues
+unbundling some of the `comunity` operators.
+
+[source,bash]
+----
+ansible-playbook download-operators.yml
+----
+
+The Red Hat operators are downloaded and extracted to the directory
+
+- redhat-operators/manifests
+
+=== Unbundle the Operators
+There are a handful of operators that are shipped as a single bundle.yaml file.
+The operatory registry cannot handle operators shipped as a single bundle.yaml
+file. This step will read in the bundle.yaml file and break it up into the
+corresponding components. (CRDs and CSVs)
+
+- CRD - Custom Resource Definition
+- CSV - Cluster Service Version
+
+[source,bash]
+----
+ansible-playbook unbundle-operators.yml
+----
+
+If you are curious you can check out the 3scale operator manifest
+
+- redhat-operators/manifests/3scale-operator/
+
+Before unbundling
+[source,bash]
+----
+3scale-operator/
+└── bundle.yaml
+----
+
+After unbundling
+[source,bash]
+----
+3scale-operator/
+├── 0.3.0
+│   ├── 3scale-operator.v0.3.0.clusterserviceversion.yaml
+│   ├── apimanagers.crd.yaml
+│   ├── apis.crd.yaml
+│   ├── bindings.crd.yaml
+│   ├── limits.crd.yaml
+│   ├── mappingrules.crd.yaml
+│   ├── metrics.crd.yaml
+│   ├── plans.crd.yaml
+│   └── tenants.crd.yaml
+├── 0.4.0
+│   ├── 3scale-operator.v0.4.0.clusterserviceversion.yaml
+│   ├── apimanagers.crd.yaml
+│   ├── apis.crd.yaml
+│   ├── bindings.crd.yaml
+│   ├── limits.crd.yaml
+│   ├── mappingrules.crd.yaml
+│   ├── metrics.crd.yaml
+│   ├── plans.crd.yaml
+│   └── tenants.crd.yaml
+├── 0.4.1
+│   ├── 3scale-operator.v0.4.1.clusterserviceversion.yaml
+│   ├── apimanagers.crd.yaml
+│   ├── apis.crd.yaml
+│   ├── bindings.crd.yaml
+│   ├── limits.crd.yaml
+│   ├── mappingrules.crd.yaml
+│   ├── metrics.crd.yaml
+│   ├── plans.crd.yaml
+│   └── tenants.crd.yaml
+└── 3scale-operator.package.yaml
+----
+
+=== Create a new/custom operator registry image
+The Dockerfile is in the repo root.
+All the ansible playbook does is, copy the manifests folder we prepared and
+build a new image from the same. This is a great opportunity to filter/control
+which operators are bundled and available to your cluster. All you need to do
+is remove the blacklisted manifests from the manifests folder before creating
+the custom operator registry image.
+
+[source,bash]
+----
+ansible-playbook unbundle-operators.yml
+----
+
+=== Mirror images required for disconnected cluster
+This ansible playbook will populate your mirror repository with all the images
+that are necessary for a disconnected OpenShift install. This includes
+
+- OpenShift release images required for a disconnected insall
+- All the image referenced by the manifests in OperatorHub
+- Miscellaneous images that are required for your disconnected cluster
+
+[source,bash]
+----
+ansible-playbook mirror-images.yml -e mirror_endpoint=<registry-mirror>
+----
+
+NOTE: replace `<registry-mirror>` with the registry repository endpoint you
+have within you organisation.
+
+For example: if you internal repository listens on port 5000 include the port
+when specifying the mirror_endpoint variable.
+
+[source,bash]
+----
+ansible-playbook mirror-images.yml -e mirror_endpoint=helper.ocp4.example.com:5000
+----
+
+By default, the `mirror-images.yml` playbook mirrors base installer images for
+and OpenShift 4.2.0 install. If you need a different version, or later if you
+you decide that you need to upgrade, you will need to mirror a newer version.
+The version of OpenShift release is controlled by ansible variable
+*ocp_release* in `vars/main.yml`
+
+For eg: to mirror OpenShift 4.2.13 installer images run
+
+[source,bash]
+----
+ansible-playbook mirror-images.yml -e mirror_endpoint=helper.ocp4.example.com:5000 -e ocp_release=4.2.13
+----
+
+==== Adding additional images
+If you need to add additional image repos to be mirrored for your airgap'd OCP
+cluster you can add them to *misc_images* ansible variable defined in
+`vars/main.yml`
+
+For eg: Typical useful images to add to the list would be
+
+- quay.io/openshift/origin-must-gather
+- registry.redhat.io/ubi8/ubi
+
+Depends on what is required for you environment. I would assume that over time
+you would be needing more images that would need to be imported into your
+registry mirror for various purposed. Adding them here and controlling the
+importing of external images using this mechanis also provides for great
+auditabilty.
+
+==== Requirments:
+Download pull secret from the Red Hat portal, and prepare a pull-secret.json
+file and drop it in the repo root. There is a pull-secret.json.sample file of
+what it should look like in the end. One of the entries in the pull-secret.json
+file should be credentials to connect to your internal registry mirror endpoint
+
+Official documentation for
+link:https://docs.openshift.com/container-platform/4.2/installing/install_config/installing-restricted-networks-preparations.html#installation-adding-registry-pull-secret_installing-restricted-networks-preparations[adding the registry to your pull secret]
+
+== Install the OpenShift cluster
+
+=== Prepare your `install-config.yaml`
+I am guessing you already have a install-config.yaml that you plan on using.
+I am just going to cover what changes we need to make to your
+`install-config.yaml` file to make it work for a disconnected install.
+
+Add the TLS cert for you mirror registry endpoint to the
+*addititonalTrustBundle* section of `install-config.yaml`
+
+In my example/lab environment, this is what it looks like
+[source,yaml]
+----
+additionalTrustBundle: |
+  -----BEGIN CERTIFICATE-----
+  ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+  -----END CERTIFICATE-----
+imageContentSources:
+- mirrors:
+  - helper.ocp4.example.com:5000/ocp-release
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - helper.ocp4.example.com:5000/ocp-release
+  source: 'quay.io/openshift-release-dev/ocp-v4.0-art-dev
+pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"YWRtaW46Y2hhbmdlbWU=","email":"admin@email.com"},"quay.io":{"auth":"YWRtaW46Y2hhbmdlbWU=","email":"admin@redhat.com"},"registry.connect.redhat.com":{"auth":"YWRtaW46Y2hhbmdlbWU=","email":"admin@email.com"},"registry.redhat.io":{"auth":"YWRtaW46Y2hhbmdlbWU=","email":"admin@email.com"},"helper.ocp4.example.com:5000":{"auth":"YWRtaW46Y2hhbmdlbWU=","email":"admin@email.com"}}}'
+----
+
+Add the pull secret that includes the creds for your mirror registry.
+You should already have this in the form of `pull-secret.json` that we created
+in the previous step. Please use the contents of that file. An easy onliner to
+convery the pretty pull-secret.json to a one line string.
+
+[source,bash]
+----
+cat pull-secret.json | sed 's/\s//g' | tr -d "\n"
+----
+
+TODO: We have all the details required to genereate a new install-config.yaml.
+Should conider a script to read in a existing install-config.yaml and output
+one with the *imageContentSources* and *pullSecret* sections added.
+
+
+== Reconfiguring the cluster
+If you have made it this far, you have managed to install your disconnected
+OpenShift cluster. The remianing steps / ansible playbooks will need to be
+executed from a host that has access to the newly installed OpenShift cluster.
+the playbooks assume the current user has a valid authenticated oc / kubectl
+session with *kubeadmin* / *cluster-admin* level privileges.
+
+=== Setup registry repo mirroring rules
+Once the cluster is installed, you need to tell the cluster to use the mirror'd
+copy of the image repos that we mirror'd earlier.
+The official OpenShift
+link:https://docs.openshift.com/container-platform/4.2/openshift_images/image-configuration.html[documentation]
+suggests creating *ImageContentSourcePolicy* for each image repository you have
+mirror'd.
+
+However, OpenShift *ImageContentSourcePolicy* only supports
+*mirror-by-digest-only*. Putting it in simpler terms, you can only reference
+the images in the mirror'd repository using the image digest, or sh256 hash.
+This is great to provide a very deterministic deployment of OpenShift.
+
+To add the *netapp/trident* repo which I have mirror'd earlier, I create and
+push the below object to the cluster.
+
+[source,yaml]
+----
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageContentSourcePolicy
+metadata:
+  name: trident
+spec:
+  repositoryDigestMirrors:
+  - mirrors:
+    - helper.ocp4.example.com:5000/misc/netapp/trident
+    source: docker.io/netapp/trident
+----
+
+Pushing out the above object will reconfigure the cluster and add the below
+section to `/etc/containers/registries.conf` on all the cluster nodes.
+
+----
+[[registry]]
+  location = "docker.io/netapp/trident"
+  insecure = false
+  blocked = false
+  mirror-by-digest-only = true
+  prefix = ""
+
+  [[registry.mirror]]
+    location = "helper.ocp4.example.com:5000/misc/netapp/trident"
+    insecure = false
+----
+
+As you can see, the resiting regisry entires has `mirror-by-digest-only = true`
+When I try to install the
+link:https://netapp-trident.readthedocs.io/[Netapp Trident]
+storage driver, the images are not referenced using their image digests. They
+are referenced using their image tags. For eg: `docker.io/netapp/trident:19.10`
+The installation fails because the cluster is trying to fetch the images by
+using tags, and the above registries.conf file prevents fetching images from
+the mirrors using tags.
+
+The only option available at hand is to create a custom registries.conf
+file and have it pushed out to all the cluster nodes via the machine config
+operator.
+
+The below playbook will uses am ansible template to generate a customised
+registries.conf file that fits you needs and pushes it out to the cluster.
+
+[source,bash]
+----
+ansible-playbook offline-cluster-registry.yml
+----
+
+The playbook waits around polling to make sure the machine config is pushed out
+to all the cluster nodes. The machine configs are pushed out to one node at a
+time. So it take time. You can watch progress by running the below.
+
+[source,bash]
+----
+watch "oc get nodes; echo; oc get machineconfigpools; echo; oc get co"
+----
+
+=== Reconfigure OpenShift OperatorHub
+Final step is to reconfigure / recreate the OperatorHub in the disconnected
+OpenShift cluster. The 2 steps involved are
+
+- Patch OperatorHub to disable AllDefaultSources
+- Create a custom CatalogSource referencing our custom registr operator image
+
+[source,bash]
+----
+ansible-playbook offline-cluster-registry.yml
+----
+
+Make sure going to the OperatorHub in the OpenShift Console interface, list
+available Operators and try instaling one. Make sures it shows up with a status
+of *InstallSucceeded* in the *Installed Operators* section.
+
+== References
+
+- link:https://github.com/ppetko/disconnected-install-service-mesh[Disconnected Install Red Hat Service Mesh]
+- link:https://github.com/dwojciec/OLM-disconnected[OLM disconnected]
+- link:https://github.com/christianh814/ocp4-upi-helpernode[OCP4 UPI Helper Node]
+

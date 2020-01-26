@@ -1,0 +1,27 @@
+---
+# tasks file for download-operator
+
+- name: Get digest for {{ op_name }} - {{ op_release }}
+  uri:
+    url: "{{ op_release_url }}"
+    body_format: json
+  register: reg_op
+
+- name: Download Operator tarball - {{ op_name }} - {{ op_release }}
+  get_url:
+    url: "{{ op_download_url }}"
+    dest: "{{ tmpdir }}/{{ op_name }}-{{ op_release }}.tar.gz"
+  vars:
+    op_digest: "{{ reg_op.json[0].content.digest }}"
+
+- name: Ensure directory exists for operator in manifests
+  file:
+    path: "{{ manifest_dir }}/{{ op_name }}"
+    state: directory
+
+- name: Extract operator package
+  unarchive:
+    src: "{{ tmpdir }}/{{ op_name }}-{{ op_release }}.tar.gz"
+    dest: "{{ manifest_dir }}/{{ op_name }}"
+    extra_opts:
+      - "--strip-components=1"

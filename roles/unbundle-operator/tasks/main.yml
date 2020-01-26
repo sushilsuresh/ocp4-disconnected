@@ -1,0 +1,71 @@
+---
+# tasks file for unbundle-operator
+
+- debug:
+    msg: "unpacking - {{ bundle_file }}"
+
+- name: Set operator base directory fact
+  set_fact:
+    op_basedir: "{{ bundle_file | dirname }}"
+
+- name: Load the bundle.yaml file as a fact
+  set_fact:
+    bundle: "{{ lookup('file', bundle_file) | from_yaml }}"
+
+- name: Extract and set clusterServiceVersions as a fact
+  set_fact:
+    clusterServiceVersions: "{{ bundle.data.clusterServiceVersions | from_yaml }}"
+
+- name: Extract and set customResourceDefinitions as a fact
+  set_fact:
+    customResourceDefinitions: "{{ bundle.data.customResourceDefinitions | from_yaml }}"
+
+- name: Extract and set packages as a fact
+  set_fact:
+    packages: "{{ (bundle.data.packages | from_yaml)[0] }}"
+
+- name: Ensure subdir exists for all ClusterServiceVersions
+  file:
+    path: "{{ op_basedir }}/{{ op_spec_version }}"
+    state: directory
+  loop: "{{ clusterServiceVersions | from_yaml }}"
+  vars:
+    op_spec_version: "{{ csv_dir.spec.version }}"
+    op_name: "{{ csv_dir.metadata.name }}"
+  loop_control:
+    label: "{{ op_spec_version }}"
+    loop_var: csv_dir
+
+- name: Create ClusterServiceVersion yaml files for each version
+  copy:
+    dest: "{{ op_basedir }}/{{ op_spec_version }}/{{ op_name }}.clusterserviceversion.yaml"
+    content: "{{ csv | to_nice_yaml(indent=2) }}"
+  loop: "{{ clusterServiceVersions | from_yaml }}"
+  vars:
+    op_spec_version: "{{ csv.spec.version }}"
+    op_name: "{{ csv.metadata.name }}"
+  loop_control:
+    label: "/{{ op_spec_version }}/{{ op_name }}.clusterserviceversion.yaml"
+    loop_var: csv
+
+- name: Create CRD yamls for - all custom resources
+  copy:
+    dest: "{{ op_basedir }}/{{ op_spec_version }}/{{ crd_name }}.crd.yaml"
+    content: "{{ crd[1] | to_nice_yaml(indent=2) }}"
+  loop: "{{ (clusterServiceVersions | from_yaml) | product(customResourceDefinitions | from_yaml) | list }}"
+  vars:
+    op_spec_version: "{{ crd[0].spec.version }}"
+    crd_name: "{{ crd[1].spec.names.plural }}"
+  loop_control:
+    label: "/{{ op_spec_version }}/{{ crd_name }}.crd.yaml"
+    loop_var: crd
+
+- name: Creae a package.yaml file for {{ packages.packageName }}
+  copy:
+    dest: "{{ op_basedir }}/{{ packages.packageName }}.package.yaml"
+    content: "{{ packages | to_nice_yaml(indent=2) }}"
+
+- name: Delete bundle file - {{ bundle_file }} - after unbundling
+  file:
+    path: "{{ bundle_file }}"
+    state: absent

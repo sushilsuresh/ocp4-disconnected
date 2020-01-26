@@ -1,0 +1,47 @@
+---
+
+- name: Create new/custom/offline operator registr image
+  hosts: localhost
+  vars_files:
+    vars/main.yml
+  tasks:
+
+    - name: Copy all the manifests into one place to build a new image
+      synchronize:
+        src: "{{ inventory_dir }}/redhat-operators/manifests/"
+        dest: "{{ inventory_dir }}/manifests/"
+        rsync_opts:
+          - "--exclude=.gitignore"
+      loop:
+        - "{{ inventory_dir }}/redhat-operators/manifests/"
+        # - "{{ inventory_dir }}/certified-operators/manifests/"
+        # - "{{ inventory_dir }}/community-operators/manifests/"
+        # Commenting out the above, untill the download and ubundling process
+        # for the certified and comunnity operators have been fully tested.
+
+    - name: Delete previously built offline-operator-registry image
+      podman_image:
+        name: "{{ mirror_endpoint }}/{{ registry_operator_repo }}"
+        state: absent
+
+    - name: Build offline-operator-registry image
+      podman_image:
+        name: "{{ mirror_endpoint }}/{{ registry_operator_repo }}"
+        path: "{{ inventory_dir }}"
+        build:
+          cache: no
+          force_rm: yes
+          rm: yes
+        push: yes
+        # The playbook is written with the assumption that you will be either
+        # using a valid cert for your registry mirror endpoint, or the very
+        # least add the cert to the systems's list of trusted ca certs.
+        # If you are desperate, you can always set
+        # valdiate_certs: no
+
+# Going to leave this comment in here for reference
+# looks like the manifest we have has got a bad image reference
+# specifically this one
+#
+# registry.redhat.io/openshift4/ose-elasticsearch-operator@sha256:5e50822dc262ddcec0ce65fd1dee14f61398047b95b5dfc438a3043b54d2f93d
+#
