@@ -23,7 +23,7 @@ unqualified-search-registries = ['registry.access.redhat.com', 'docker.io']
   prefix = ""
 
   [[registry.mirror]]
-    location = "{{ mirror_endpoint }}/{{ reg.split('/')[1:] | join('/') }}"
+    location = "{{ mirror_endpoint }}/{{ misc_image_path }}/{{ reg.split('/')[1:] | join('/') }}"
     insecure = false
 
 {% endfor %}
@@ -38,7 +38,7 @@ unqualified-search-registries = ['registry.access.redhat.com', 'docker.io']
   prefix = ""
 
   [[registry.mirror]]
-    location = "{{ mirror_endpoint }}/olm/{{ reg.split('/')[1:] | join('/') }}"
+    location = "{{ mirror_endpoint }}/{{ olm_image_path }}/{{ reg.split('/')[1:] | join('/') }}"
     insecure = false
 
 {% endfor %}
