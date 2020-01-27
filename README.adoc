@@ -1,5 +1,25 @@
 = OCP4 Disconnected
 
+== TLDR
+
+- Pre Install
+[source,bash]
+----
+ansible-playbook download-operators.yml
+ansible-playbook unbundle-operators.yml
+ansible-playbook create-operator-registry-image.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
+ansible-playbook mirror-images.yml -e mirror_endpoint=<registry-mirror>:<registry-port> -e ocp_release=4.2.13
+----
+
+- Install cluster with an patched/updated install-config.yaml file
+
+- Post Install
+[source,bash]
+----
+ansible-playbook offline-cluster-registry.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
+ansible-playbook create-offline-operatorhub.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
+----
+
 == Why this repo?
 This is the end result of trying to follow the OpenShift 4.2 documentation to
 perform a disconnected install.
@@ -151,7 +171,17 @@ the custom operator registry image.
 
 [source,bash]
 ----
-ansible-playbook unbundle-operators.yml
+ansible-playbook create-operator-registry-image.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
+----
+
+NOTE: replace `<registry-mirror>` with the registry repository endpoint you
+have within you organisation.
+
+For example: if you internal repository listens on port 5000 include the port
+when specifying the mirror_endpoint variable.
+
+----
+ansible-playbook create-operator-registry-image.yml -e mirror_endpoint=helper.ocp4.example.com:5000
 ----
 
 === Mirror images required for disconnected cluster
@@ -164,18 +194,7 @@ that are necessary for a disconnected OpenShift install. This includes
 
 [source,bash]
 ----
-ansible-playbook mirror-images.yml -e mirror_endpoint=<registry-mirror>
-----
-
-NOTE: replace `<registry-mirror>` with the registry repository endpoint you
-have within you organisation.
-
-For example: if you internal repository listens on port 5000 include the port
-when specifying the mirror_endpoint variable.
-
-[source,bash]
-----
-ansible-playbook mirror-images.yml -e mirror_endpoint=helper.ocp4.example.com:5000
+ansible-playbook mirror-images.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
 ----
 
 By default, the `mirror-images.yml` playbook mirrors base installer images for
@@ -328,7 +347,7 @@ registries.conf file that fits you needs and pushes it out to the cluster.
 
 [source,bash]
 ----
-ansible-playbook offline-cluster-registry.yml
+ansible-playbook offline-cluster-registry.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
 ----
 
 The playbook waits around polling to make sure the machine config is pushed out
@@ -349,7 +368,7 @@ OpenShift cluster. The 2 steps involved are
 
 [source,bash]
 ----
-ansible-playbook offline-cluster-registry.yml
+ansible-playbook create-offline-operatorhub.yml -e mirror_endpoint=<registry-mirror>:<registry-port>
 ----
 
 Make sure going to the OperatorHub in the OpenShift Console interface, list
