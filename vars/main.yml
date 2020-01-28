@@ -16,6 +16,7 @@ misc_images:
   - "quay.io/k8scsi/csi-provisioner:v1.3.1"      # required for trident sotrage
   - "quay.io/k8scsi/csi-node-driver-registrar"   # required for trident sotrage
   - "quay.io/openshift/origin-must-gather"       # required for submitting logs from the cluster for Red Hat support
+  - "quay.io/external_storage/nfs-client-provisioner"  # required for my lab evnironment to setup nfs backed pvc
 
 # below are the paths that will be used on the
 # mirror repository to store the mirror'd images

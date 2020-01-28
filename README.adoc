@@ -56,7 +56,8 @@ You have a Linux machine with the following
   - podman installed
   - Able to spin up podman containers as a regular user
   - oc client installed
-  - ansibe with both the kubernetes and openshift modules installed
+  - ansibe >= 2.9
+  - Following pip modules installed - kubernetes, openshift, jamespath
 
 == Preparatory Steps
 The following playbooks are to be run from a host that has connectivity to the

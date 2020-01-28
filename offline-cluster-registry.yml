@@ -1,6 +1,8 @@
 ---
 - name: Reconfigure Cluster to use the offline registry mirror
   hosts: localhost
+  vars_files:
+    vars/main.yml
   tasks:
 
     - name: Get list of image registires referenced by the olm catalog
