@@ -28,6 +28,7 @@
       podman_image:
         name: "{{ mirror_endpoint }}/{{ registry_operator_repo }}"
         path: "{{ inventory_dir }}"
+        auth_file: "{{ inventory_dir }}/{{ local_secret_json }}"
         build:
           cache: no
           force_rm: yes
