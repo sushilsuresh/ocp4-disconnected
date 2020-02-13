@@ -35,11 +35,33 @@
       register: reg_image_refs
       changed_when: false
 
+    ###########################################################################
+    # NOTE: Commenting out the mirroring of images using the oc image mirror
+    # command. Looks like there is a bug. the oc image mirror command does not
+    # create all the manifests in the destination mirror registry. As a result
+    # when new subscriptions are created, they fail to spin up the operator
+    # pods , with imagePullError and BackOff. :facepalm
+    # If you are interested, the relevant BZ is linked below
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1800674
+    ###########################################################################
+
+    # - name: Mirror images required/referenced by the OLM
+    #   command: "oc image mirror {{ src_image }} {{ mirror_repo }} --registry-config={{ local_secret_json }}"
+    #   vars:
+    #     src_image: "{{ item }}"
+    #     src_image_path: "{{ lookup('image_path', image=item) }}"
+    #     mirror_repo: "{{ mirror_endpoint }}/{{ olm_image_path }}/{{ src_image_path }}"
+    #   loop: "{{ reg_image_refs.stdout_lines }}"
+
+
+    ###########################################################################
+    # Temporory workaround by using the skopeo copy --all command.
+    # We should revert back to oc image mirror command once the bug is fixed.
+    ###########################################################################
     - name: Mirror images required/referenced by the OLM
-      command: "oc image mirror {{ src_image }} {{ mirror_repo }} --registry-config={{ local_secret_json }}"
+      command: "skopeo copy --all --authfile {{ local_secret_json }} docker://{{ src_image }} docker://{{ mirror_repo }}"
       vars:
         src_image: "{{ item }}"
         src_image_path: "{{ lookup('image_path', image=item) }}"
         mirror_repo: "{{ mirror_endpoint }}/{{ olm_image_path }}/{{ src_image_path }}"
       loop: "{{ reg_image_refs.stdout_lines }}"
-
